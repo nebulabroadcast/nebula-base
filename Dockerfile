@@ -1,12 +1,10 @@
-FROM python:3.11-bullseye AS base
+FROM python:3.13-slim-trixie AS base
 
 RUN apt-get update && apt-get -y upgrade && apt-get install -yqq \
+    cifs-utils \
     curl \
+    mediainfo \
     wget
-
-RUN pip install --upgrade pip \
-  && pip install poetry \
-  && poetry config virtualenvs.create false 
 
 #
 # Build base
@@ -30,10 +28,10 @@ RUN apt-get install -yqq \
   nasm \
   ninja-build \
   pkg-config \
+  python3-dev \
   swig \
   uuid-dev \
-  wget \
-  yasm 
+  yasm
 
 #
 # BMX
@@ -42,6 +40,8 @@ RUN apt-get install -yqq \
 FROM build AS bmx
 
 RUN mkdir /src
+RUN mkdir /dist
+
 WORKDIR /src
 
 RUN git clone https://github.com/Limecraft/ebu-libmxf
@@ -57,15 +57,47 @@ RUN ./autogen.sh && ./configure && make && make install && /sbin/ldconfig
 WORKDIR /src/ebu-bmx
 RUN ./autogen.sh && ./configure && make && make install && /sbin/ldconfig
 
+RUN cp -r /usr/local/lib /dist/
+RUN cp -r /usr/local/bin /dist/
+RUN rm -rf /dist/lib/pkgconfig /dist/python*
+WORKDIR /dist
+
 #
 # FFMPEG
 #
 
 FROM build AS ffmpeg
 
-ENV FFMPEG_VERSION 6.0
-ENV MLT_VERSION 7.16.0
-ENV LD_LIBRARY_PATH /usr/local/lib
+ENV FFMPEG_VERSION=8.1.2
+ENV MLT_VERSION=7.40.0
+ENV LD_LIBRARY_PATH=/usr/local/lib
+
+RUN apt-get update 
+
+RUN apt-get install -yqq \
+  ladspa-sdk \
+  libarchive-dev \
+  libebur128-dev \
+  libegl1-mesa-dev \
+  libeigen3-dev \
+  libexif-dev \
+  libfftw3-dev \
+  libgavl-dev \
+  libgcrypt20-dev \
+  libgdk-pixbuf-2.0-dev \
+  libgnutls-openssl-dev \
+  libmp3lame-dev \
+  libsamplerate-dev \
+  libsamplerate0-dev \
+  libsoup2.4-dev \
+  libsox-dev \
+  libtheora-dev \
+  libvdpau-dev \
+  libvorbis-dev \
+  libvpx-dev \
+  libx264-dev \
+  libxml2-dev \
+  xutils-dev
 
 WORKDIR /src
 
@@ -81,24 +113,14 @@ RUN \
 
 RUN \
   wget https://github.com/mltframework/mlt/archive/refs/tags/v${MLT_VERSION}.tar.gz \
-  && tar -xzf v7.16.0.tar.gz \
+  && tar -xzf v${MLT_VERSION}.tar.gz \
   && rm v${MLT_VERSION}.tar.gz \
   && mv mlt-${MLT_VERSION} mlt
 
-# Build ffmpeg
+
+# Build FFMPEG
 
 WORKDIR /src/ffmpeg
-
-RUN apt-get install -yqq \
-  libgcrypt20-dev \
-  libgnutls-openssl-dev \
-  libx264-dev \
-  libmp3lame-dev \
-  libsox-dev \
-  libtheora-dev \
-  libvorbis-dev \
-  libvpx-dev 
-
 RUN ./configure \
   --prefix=/usr/local \
   --disable-doc \
@@ -118,28 +140,31 @@ RUN ./configure \
 
 # Build MLT
 
-WORKDIR /src/mlt/build
+WORKDIR /src/mlt
+RUN cmake -GNinja \
+  -DBUILD_TESTS_WITH_QT6=OFF \
+  -DMOD_FREI0R=OFF \
+  -DMOD_DECKLINK=OFF \
+  -DMOD_JACKRACK=OFF \
+  -DMOD_KDENLIVE=OFF \
+  -DMOD_NDI=OFF \
+  -DMOD_OLDFILM=OFF \
+  -DMOD_QT6=OFF \
+  -DMOD_MOVIT=OFF \
+  -DMOD_RTAUDIO=OFF \
+  -DMOD_RUBBERBAND=OFF \
+  -DMOD_MOVIT=OFF \
+  -DMOD_GDK=OFF \
+  -DMOD_SDL=OFF \
+  -DMOD_SDL1=OFF \
+  -DMOD_SDL2=OFF \
+  -DMOD_VIDSTAB=OFF \
+  -DMOD_RNNOISE=OFF \
+  -DSWIG_PYTHON=ON \
+  . \
+  && cmake --build . \
+  && cmake --install . --prefix /usr/local
 
-RUN apt-get install -yqq \
-  libgavl-dev \
-  libsamplerate0-dev \
-  libxml2-dev \
-  ladspa-sdk \
-  libjack-dev \
-  libsoup2.4-dev \
-  libexif-dev \
-  xutils-dev \
-  libegl1-mesa-dev \
-  libeigen3-dev \
-  libfftw3-dev \
-  libvdpau-dev \
-  librtaudio-dev \
-  libsamplerate-dev \
-  python3-dev
-
-RUN cmake --enable-gpl -D SWIG_PYTHON=ON ..
-RUN cmake --build .
-RUN cmake --install . --prefix /usr/local
 
 #
 # Final image
@@ -149,42 +174,46 @@ FROM base
 
 ENV PYTHONUNBUFFERED=1
 
-COPY --from=bmx /usr/local/lib/lib* /usr/local/lib/
-COPY --from=bmx /usr/local/bin/* /usr/local/bin/
-
 # Install runtime dependencies
 # Build essentials are needed for building some python packages
 
 RUN apt-get install -yqq \
-  amb-plugins \
-  build-essential \
-  cifs-utils \
-  curl \
-  libexif12 \
-  libexpat1 \
-  libgcrypt20 \
-  libgnutls-openssl27 \
-  libmp3lame0 \
-  librtaudio6 \
-  libsamplerate0 \
-  libsox3 \
-  libtheora0 \
-  liburiparser1 \
-  libvorbis0a \
-  libvpx6 \
-  libx264-160 \
-  libxml2 \
-  lsp-plugins-ladspa \
-  mediainfo \
-  uuid \
-  zlib1g-dev
+    amb-plugins \
+    libebur128-1 \
+    libexif12 \
+    libexpat1 \
+    libfftw3-bin \
+    libgcrypt20 \
+    libgnutls-openssl27 \
+    libgdk-pixbuf-2.0-0 \
+    libmp3lame0 \
+    libsamplerate0 \
+    libsndio7.0 \
+    libsox3 \
+    libtheora0 \
+    liburiparser1 \
+    libvdpau1 \
+    libvorbis0a \
+    libvorbisenc2 \
+    libvpx9 \
+    libx264-164 \
+    libxv1 \
+    libxml2 \
+    uuid \
+    zlib1g-dev \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
 
 #
 # Copy built files
 #
 
 COPY --from=ffmpeg /usr/local/ /usr/local/
-RUN cp /usr/local/lib/python3/dist-packages/mlt7.py /usr/local/lib/python3.11/site-packages/mlt.py
-RUN cp /usr/local/lib/python3/dist-packages/_mlt7.so /usr/local/lib/python3.11/site-packages/_mlt7.so
+
+COPY --from=bmx /dist/lib /usr/local/lib
+COPY --from=bmx /dist/bin /usr/local/bin
+
+# RUN cp /usr/local/lib/python3/dist-packages/mlt7.py /usr/local/lib/python3.12/site-packages/mlt.py
+# RUN cp /usr/local/lib/python3/dist-packages/_mlt7.so /usr/local/lib/python3.12/site-packages/_mlt7.so
 
 RUN ldconfig
