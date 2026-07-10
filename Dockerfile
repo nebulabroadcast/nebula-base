@@ -1,11 +1,16 @@
 FROM python:3.13-slim-trixie AS base
 
-RUN apt-get update && apt-get -y upgrade && apt-get install -yqq \
+RUN \
+  apt-get update \
+  && apt-get -y upgrade \
+  && apt-get install -yqq --no-install-recommends \
     cifs-utils \
     curl \
     mediainfo \
     procps \
-    wget
+    wget \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
 
 #
 # Build base
@@ -13,26 +18,29 @@ RUN apt-get update && apt-get -y upgrade && apt-get install -yqq \
 
 FROM base AS build
 
-RUN apt-get install -yqq \
-  apt-utils \
-  autoconf \
-  automake \
-  build-essential \
-  cmake \
-  g++ \
-  git \
-  intltool \
-  libexpat1-dev \
-  libtool \
-  liburiparser-dev \
-  meson \
-  nasm \
-  ninja-build \
-  pkg-config \
-  python3-dev \
-  swig \
-  uuid-dev \
-  yasm
+RUN \
+  apt-get update \
+  && apt-get install -yqq --no-install-recommends \
+    apt-utils \
+    autoconf \
+    automake \
+    build-essential \
+    cmake \
+    g++ \
+    git \
+    intltool \
+    libexpat1-dev \
+    libtool \
+    liburiparser-dev \
+    meson \
+    nasm \
+    ninja-build \
+    pkg-config \
+    python3-dev \
+    swig \
+    uuid-dev \
+    unzip \
+    yasm
 
 #
 # BMX
@@ -74,24 +82,27 @@ ENV MLT_VERSION=7.40.0
 ENV LD_LIBRARY_PATH=/usr/local/lib
 
 RUN apt-get update 
-
-RUN apt-get install -yqq \
+RUN apt-get install -yqq --no-install-recommends \
   ladspa-sdk \
   libarchive-dev \
   libebur128-dev \
   libegl1-mesa-dev \
   libeigen3-dev \
   libexif-dev \
+  libffmpeg-nvenc-dev \
+  libfreetype-dev \
   libfftw3-dev \
   libgavl-dev \
   libgcrypt20-dev \
   libgdk-pixbuf-2.0-dev \
   libgnutls-openssl-dev \
   libmp3lame-dev \
+  libopencolorio-dev \
   libsamplerate-dev \
   libsamplerate0-dev \
   libsoup2.4-dev \
   libsox-dev \
+  libsoxr-dev \
   libtheora-dev \
   libvdpau-dev \
   libvorbis-dev \
@@ -100,15 +111,16 @@ RUN apt-get install -yqq \
   libxml2-dev \
   xutils-dev
 
-WORKDIR /src
 
 # FFMPEG
 
+WORKDIR /src
 RUN \
   wget http://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.gz \
   && tar -xzf ffmpeg-${FFMPEG_VERSION}.tar.gz \
   && rm ffmpeg-${FFMPEG_VERSION}.tar.gz \
   && mv ffmpeg-${FFMPEG_VERSION} ffmpeg
+
 
 # MLT
 
@@ -121,21 +133,28 @@ RUN \
 
 # Build FFMPEG
 
+
 WORKDIR /src/ffmpeg
-RUN ./configure \
+RUN \
+ ./configure \
   --prefix=/usr/local \
   --disable-doc \
+  --disable-ffplay \
+  --disable-alsa \
   --enable-gpl \
   --enable-version3 \
+  --enable-nonfree \
   --enable-shared \
-  --enable-debug \
   --enable-pthreads \
+  --enable-gnutls \
+  --enable-libfreetype \
   --enable-libmp3lame \
+  --enable-libopencolorio \
   --enable-libtheora \
   --enable-libvorbis \
+  --enable-libsoxr \
   --enable-libvpx \
   --enable-libx264 \
-  --enable-gnutls \
   --extra-version=NEBULA \
   --enable-runtime-cpudetect && make -j16 && make install
 
@@ -178,19 +197,24 @@ ENV PYTHONUNBUFFERED=1
 # Install runtime dependencies
 # Build essentials are needed for building some python packages
 
-RUN apt-get install -yqq \
+RUN \
+  apt-get update \
+  && apt-get install -yqq --no-install-recommends \
     amb-plugins \
     libebur128-1 \
     libexif12 \
     libexpat1 \
     libfftw3-bin \
+    libfreetype6 \
     libgcrypt20 \
     libgnutls-openssl27 \
     libgdk-pixbuf-2.0-0 \
     libmp3lame0 \
+    libopencolorio2.1 \
     libsamplerate0 \
     libsndio7.0 \
     libsox3 \
+    libsoxr0 \
     libtheora0 \
     liburiparser1 \
     libvdpau1 \
@@ -216,5 +240,7 @@ COPY --from=bmx /dist/bin /usr/local/bin
 
 # RUN cp /usr/local/lib/python3/dist-packages/mlt7.py /usr/local/lib/python3.12/site-packages/mlt.py
 # RUN cp /usr/local/lib/python3/dist-packages/_mlt7.so /usr/local/lib/python3.12/site-packages/_mlt7.so
+
+WORKDIR /app
 
 RUN ldconfig

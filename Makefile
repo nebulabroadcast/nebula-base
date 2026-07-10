@@ -7,5 +7,8 @@ build:
 shell:
 	docker run --rm -it  $(IMAGE) /bin/bash
 
+shell-nvidia:
+	docker run --rm -it --runtime=nvidia --gpus all -v ./test:/app $(IMAGE) /bin/bash
+
 dist: build
 	docker push $(IMAGE)
