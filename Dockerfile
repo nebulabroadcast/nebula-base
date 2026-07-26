@@ -99,6 +99,7 @@ RUN apt-get update && apt-get install -yqq --no-install-recommends \
   libgcrypt20-dev \
   libgdk-pixbuf-2.0-dev \
   libgnutls-openssl-dev \
+  libharfbuzz-dev \
   libmp3lame-dev \
   libopencolorio-dev \
   libsamplerate-dev \
@@ -142,6 +143,7 @@ RUN \
     --enable-pthreads \
     --enable-gnutls \
     --enable-libfreetype \
+    --enable-libharfbuzz \
     --enable-libmp3lame \
     --enable-libopencolorio \
     --enable-libtheora \
@@ -223,6 +225,7 @@ RUN \
     libgcrypt20 \
     libgnutls-openssl27 \
     libgdk-pixbuf-2.0-0 \
+    libharfbuzz0b \
     libmp3lame0 \
     libopencolorio2.1 \
     libsamplerate0 \
