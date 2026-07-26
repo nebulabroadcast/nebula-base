@@ -1,4 +1,4 @@
-IMAGE=nebulabroadcast/nebula-worker-base:6.1.0
+IMAGE=nebulabroadcast/nebula-worker-base:2026.07
 PHONY: build shell dist
 
 build:
