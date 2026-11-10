@@ -79,8 +79,8 @@ RUN ./autogen.sh && ./configure --prefix=/usr/local \
 
 FROM build AS ffmpeg
 
-ENV FFMPEG_VERSION=8.1.2
-ENV MLT_VERSION=7.40.0
+ENV FFMPEG_VERSION=9.0.2
+ENV MLT_VERSION=7.42.0
 ENV LD_LIBRARY_PATH=/usr/local/lib
 
 RUN apt-get update && apt-get install -yqq --no-install-recommends \
@@ -88,6 +88,7 @@ RUN apt-get update && apt-get install -yqq --no-install-recommends \
   libarchive-dev \
   libass-dev \
   libdav1d-dev \
+  libdrm-dev \
   libebur128-dev \
   libegl1-mesa-dev \
   libeigen3-dev \
@@ -109,6 +110,7 @@ RUN apt-get update && apt-get install -yqq --no-install-recommends \
   libsrt-gnutls-dev \
   libsvtav1enc-dev \
   libtheora-dev \
+  libva-dev \
   libvdpau-dev \
   libvorbis-dev \
   libvpx-dev \
@@ -159,6 +161,8 @@ RUN \
     --enable-libsvtav1 \
     --enable-nvenc \
     --enable-nvdec \
+    --enable-vaapi \
+    --enable-libdrm \
     --extra-version=NEBULA \
     --enable-runtime-cpudetect \
   && make -j$(nproc) \
@@ -215,8 +219,10 @@ RUN \
   apt-get update \
   && apt-get install -yqq --no-install-recommends \
     amb-plugins \
+    intel-media-va-driver \
     libass9 \
     libdav1d7 \
+    libdrm2 \
     libebur128-1 \
     libexif12 \
     libexpat1 \
@@ -236,16 +242,22 @@ RUN \
     libsvtav1enc2 \
     libtheora0 \
     liburiparser1 \
+    libva2 \
+    libva-drm2 \
+    libva-x11-2 \
     libvdpau1 \
     libvorbis0a \
     libvorbisenc2 \
+    libvorbisfile3 \
     libvpx9 \
     libx264-164 \
     libx265-215 \
     libxv1 \
     libxml2 \
     libzimg2 \
+    mesa-va-drivers \
     uuid \
+    vainfo \
     zlib1g-dev \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
